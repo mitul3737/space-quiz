@@ -216,23 +216,38 @@
       { category: "Into the unknown", question: "Which spacecraft was the first to enter interstellar space?", answers: ["New Horizons", "Pioneer 10", "Voyager 1", "Cassini"], correct: 2, fact: "Voyager 1 crossed the heliopause in August 2012, becoming the first spacecraft to reach interstellar space." }
     ];
     const get = id => document.getElementById(id);
+    let missionQuestions = [];
+    let previousMissionOrder = null;
     let current = 0;
     let score = 0;
     let answered = false;
     let history = [];
 
+    function createMissionOrder() {
+      const order = [...questions];
+      for (let index = order.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
+      }
+      if (previousMissionOrder && order.length > 1 && order.every((item, index) => item === previousMissionOrder[index])) {
+        [order[0], order[1]] = [order[1], order[0]];
+      }
+      previousMissionOrder = order;
+      return order;
+    }
+
     function renderQuestion(focus = false) {
-      const item = questions[current];
+      const item = missionQuestions[current];
       answered = false;
       get("mission-status").textContent = "Awaiting input";
-      get("question-count").innerHTML = `<strong>Question ${current + 1}</strong> of ${questions.length}`;
+      get("question-count").innerHTML = `<strong>Question ${current + 1}</strong> of ${missionQuestions.length}`;
       get("category").textContent = item.category;
       get("question").textContent = item.question;
       get("score").textContent = `${score} ${score === 1 ? "point" : "points"}`;
       get("feedback").hidden = true;
       get("feedback").replaceChildren();
       get("next").disabled = true;
-      get("next-label").textContent = current === questions.length - 1 ? "See my results" : "Next question";
+      get("next-label").textContent = current === missionQuestions.length - 1 ? "See my results" : "Next question";
       get("answers").replaceChildren();
       item.answers.forEach((answer, index) => {
         const button = document.createElement("button");
@@ -251,7 +266,7 @@
     function selectAnswer(index) {
       if (answered || get("quiz").hidden) return;
       answered = true;
-      const item = questions[current];
+      const item = missionQuestions[current];
       const correct = index === item.correct;
       get("mission-status").textContent = "Answer recorded";
       history.push(correct);
@@ -269,9 +284,9 @@
         } else button.classList.add("dimmed");
       });
       get("score").textContent = `${score} ${score === 1 ? "point" : "points"}`;
-      get("progress-fill").style.width = `${((current + 1) / questions.length) * 100}%`;
+      get("progress-fill").style.width = `${((current + 1) / missionQuestions.length) * 100}%`;
       get("progress").setAttribute("aria-valuenow", current + 1);
-      get("progress-percent").textContent = `${Math.round((current + 1) / questions.length * 100)}%`;
+      get("progress-percent").textContent = `${Math.round((current + 1) / missionQuestions.length * 100)}%`;
       const feedback = get("feedback");
       feedback.className = `feedback ${correct ? "good" : "bad"}`;
       const title = document.createElement("strong");
@@ -295,8 +310,8 @@
       get("reaction").setAttribute("aria-label", tier.label);
       get("result-title").textContent = tier.title;
       get("result-description").textContent = tier.description;
-      get("result-score").innerHTML = `${score}<span> / ${questions.length}</span>`;
-      get("accuracy").textContent = `${Math.round(score / questions.length * 100)}%`;
+      get("result-score").innerHTML = `${score}<span> / ${missionQuestions.length}</span>`;
+      get("accuracy").textContent = `${Math.round(score / missionQuestions.length * 100)}%`;
       get("rank").textContent = tier.rank;
       get("result-dots").replaceChildren();
       history.forEach((correct, index) => {
@@ -312,13 +327,14 @@
 
     get("next").addEventListener("click", () => {
       if (!answered) return;
-      if (current === questions.length - 1) showResults();
+      if (current === missionQuestions.length - 1) showResults();
       else { current++; renderQuestion(true); }
     });
     get("restart").addEventListener("click", () => {
       current = 0;
       score = 0;
       history = [];
+      missionQuestions = createMissionOrder();
       get("results").hidden = true;
       get("quiz").hidden = false;
       get("progress-fill").style.width = "0%";
@@ -333,6 +349,7 @@
         selectAnswer(Number(event.key) - 1);
       }
     });
+    missionQuestions = createMissionOrder();
     renderQuestion();
   </script>
 </body>
