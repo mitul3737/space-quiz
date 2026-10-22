@@ -40,8 +40,11 @@ In that workshop you:
 5. Publish the folder as a GitHub repository (this one).
 6. Create GitHub issues (ideas for new features) and let Copilot implement them in pull requests.
    For example, PR #5 made the question order shuffle on every new game.
-The app now looks like this 
-![Quiz Screenshot](images/image4.png)
+
+At the end of the workshop, the app looked like this (before Devin added the timer):
+
+![The Space Quiz in dark mode, showing question 1 with four answer choices](images/image4.png)
+
 ---
 
 ## 3. Step two: extending it with Devin and HashiCorp Terraform
@@ -62,14 +65,19 @@ How Devin worked, in plain words:
 2. **Installed the tools it needed:** the GitHub CLI (`gh`) and Terraform.
 3. **Made one branch per PR** so each change could be reviewed on its own.
 4. **Tested everything before opening the PRs** (the same tests are in section 5 so you can repeat them).
-5. **Opened the three PRs**, each describing exactly how it was tested.
+5. **Opened the three PRs**, each describing exactly how it was tested:
 
-![Devin Workflow](images/image1.png)
-![Devin Workflow](images/image2.png)
-![Devin Workflow](images/image3.png)
-6. **Did not merge anything itself.** A human reviewed and merged.
+   ![PR #6: Devin setup files, with what changed, how it was tested and the checklist](images/image1.png)
 
-![Devin Workflow](images/image6.png)
+   ![PR #7: 30-second countdown, with what changed and the 15 browser test results](images/image2.png)
+
+   ![PR #8: Terraform for S3 hosting, with the fmt and validate results](images/image3.png)
+
+6. **Waited for a human review.** The PRs were merged only after the repo owner reviewed them and
+   asked for them to be merged, in order (#6, then #7, then #8):
+
+   ![The pull requests list showing #6, #7 and #8 merged](images/image6.png)
+
 7. **Kept secrets safe.** No passwords, API keys or Terraform state files are in the repo.
 
 ---
