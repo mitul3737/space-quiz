@@ -58,6 +58,11 @@
     .question-count strong { color: var(--text); font-weight: 650; }
     .score { display: flex; gap: 6px; align-items: center; font-weight: 650; background: var(--accent-soft); color: var(--accent); padding: 6px 10px; border: 1px solid var(--frame); border-radius: 3px; font-variant-numeric: tabular-nums; }
     .score svg { width: 13px; height: 13px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .timer { display: flex; gap: 6px; align-items: center; font-weight: 650; background: var(--soft); color: var(--text); padding: 6px 10px; border: 1px solid var(--frame); border-radius: 3px; font-variant-numeric: tabular-nums; }
+    .timer svg { width: 13px; height: 13px; }
+    .timer.low { color: var(--red); background: var(--red-bg); border-color: #ea8a9b; animation: pulse 1s ease-in-out infinite; }
+    .timer.expired { color: var(--red); background: var(--red-bg); border-color: #ea8a9b; }
     .progress-label { display: flex; justify-content: space-between; color: var(--muted); margin-bottom: 8px; font: 10px/1.5 var(--mono); letter-spacing: 1px; text-transform: uppercase; }
     .progress { position: relative; height: 9px; border-radius: 1px; overflow: hidden; background: var(--line); }
     .progress::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(10% - 3px), var(--surface) calc(10% - 3px), var(--surface) 10%); pointer-events: none; }
@@ -110,6 +115,7 @@
     @keyframes appear { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes correct-pop { 0% { transform: scale(.98); } 55% { transform: scale(1.025); } 100% { transform: scale(1); } }
     @keyframes shake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-5px); } 40%,80% { transform: translateX(5px); } }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
     @media (prefers-color-scheme: dark) {
       :root { color: #efedf9; background: #14131f; --surface: #201e2e; --text: #efedf9; --muted: #aaa5be; --line: #353146; --soft: #282536; --accent: #ac9bff; --accent-soft: #332c50; --green: #89ddb2; --green-bg: #203c31; --red: #ffa0b0; --red-bg: #432833; --shadow: 0 12px 45px #0002; --grid: #ac9bff09; --frame: #534b69; }
       .primary { background: #7060ca; }
@@ -169,6 +175,7 @@
       <div id="quiz">
         <div class="status">
           <span class="question-count" id="question-count"></span>
+          <span class="timer" id="timer" role="timer"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2 2"/></svg><span class="sr-only">Time remaining:</span> <span id="timer-value">30</span><span aria-hidden="true">s</span></span>
           <span class="score" aria-live="polite" aria-atomic="true">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="m8 1 2 4 4.5.7-3.2 3.2.7 4.6-4-2.2-4 2.2.7-4.6L1.5 5.7 6 5Z"/></svg>
             <span id="score">0 points</span>
@@ -216,12 +223,39 @@
       { category: "Into the unknown", question: "Which spacecraft was the first to enter interstellar space?", answers: ["New Horizons", "Pioneer 10", "Voyager 1", "Cassini"], correct: 2, fact: "Voyager 1 crossed the heliopause in August 2012, becoming the first spacecraft to reach interstellar space." }
     ];
     const get = id => document.getElementById(id);
+    const QUESTION_SECONDS = 30;
     let missionQuestions = [];
     let previousMissionOrder = null;
     let current = 0;
     let score = 0;
     let answered = false;
     let history = [];
+    let deadline = 0;
+    let timerId = null;
+
+    function remainingMs() { return Math.max(0, deadline - performance.now()); }
+    function stopTimer() { clearInterval(timerId); timerId = null; }
+    function updateTimer() {
+      const seconds = Math.ceil(remainingMs() / 1000);
+      get("timer-value").textContent = seconds;
+      get("timer").classList.toggle("low", seconds > 0 && seconds <= 10);
+      get("timer").classList.toggle("expired", seconds === 0);
+    }
+    function tick() {
+      if (answered || get("quiz").hidden) return stopTimer();
+      if (remainingMs() <= 0) timeOut();
+      else updateTimer();
+    }
+    function startTimer() {
+      stopTimer();
+      deadline = performance.now() + QUESTION_SECONDS * 1000;
+      updateTimer();
+      timerId = setInterval(tick, 250);
+    }
+    function timeOut() {
+      if (answered || get("quiz").hidden) return;
+      recordAnswer(null);
+    }
 
     function createMissionOrder() {
       const order = [...questions];
@@ -261,11 +295,21 @@
       void get("question-content").offsetWidth;
       get("question-content").classList.add("slide-in");
       if (focus) get("question").focus({ preventScroll: true });
+      startTimer();
     }
 
     function selectAnswer(index) {
       if (answered || get("quiz").hidden) return;
+      if (remainingMs() <= 0) return timeOut();
+      recordAnswer(index);
+    }
+
+    function recordAnswer(index) {
+      if (answered || get("quiz").hidden) return;
       answered = true;
+      stopTimer();
+      updateTimer();
+      const timedOut = index === null;
       const item = missionQuestions[current];
       const correct = index === item.correct;
       get("mission-status").textContent = "Answer recorded";
@@ -290,7 +334,7 @@
       const feedback = get("feedback");
       feedback.className = `feedback ${correct ? "good" : "bad"}`;
       const title = document.createElement("strong");
-      title.textContent = correct ? "Spot on, explorer! ✦" : "Not quite — a new discovery!";
+      title.textContent = timedOut ? `Time's up! The answer was ${item.answers[item.correct]}.` : correct ? "Spot on, explorer! ✦" : "Not quite — a new discovery!";
       feedback.append(title, document.createTextNode(item.fact));
       feedback.hidden = false;
       get("next").disabled = false;
@@ -298,6 +342,7 @@
     }
 
     function showResults() {
+      stopTimer();
       get("mission-status").textContent = "Mission complete";
       get("quiz").hidden = true;
       get("results").hidden = false;
@@ -348,6 +393,9 @@
         event.preventDefault();
         selectAnswer(Number(event.key) - 1);
       }
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) tick();
     });
     missionQuestions = createMissionOrder();
     renderQuestion();
